@@ -16,31 +16,33 @@ def map_merge(left, right, metrics=''):
     Numeric  attributes are distributed based on an area weightage.
     (In the future, we may want to tweak the weightages.)
     '''
-    print(left)
     shp_left = gpd.GeoDataFrame.from_file(left)
-    print(right)
     shp_right = gpd.GeoDataFrame.from_file(right)
     # Precompute the areas
     shp_left['AREA'] = shp_left.geometry.area
     shp_right['AREA'] = shp_right.geometry.area
-    print(shp_left)
-    # print(shp_right)
+    print(shp_right.head(3))
+
     # Filter None values from shp_right, shp_left
-    shp_left.dropna(inplace=True)
-    shp_right.dropna(inplace=True)
+    # shp_left.dropna(inplace=True)
+    # shp_right.dropna(inplace=True)
+    print("#########################")
+    print(shp_left.head(3))
+    print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+    print(shp_right.head(3))
+    print("$$$$$$$$$$$$$$$$$$$$$$$$$$$")
 
     # Move a metric from the right shapefile to the left by weighting it by AREA
     # default to all columns except geometry and AREA
     if not metrics:
         # append all columns except geometry and area
         metrics = list(shp_right.columns)
-        for m in ['geometry','AREA']:
+        for m in ['geometry', 'AREA']:
             metrics.remove(m)
 
     # Join the shapes. This creates a GeoDataFrame with one polygon per
     # intersection. Attributes from both DataFrames are present, suffixed with
     # _left and _right where there's an ovelap
-    # print(shp_left)
     merged = gpd.sjoin(shp_left, shp_right).reset_index().rename(
         columns={'index': 'index_left'})
 
@@ -56,40 +58,47 @@ def map_merge(left, right, metrics=''):
     merged['AREA'] = merged.geometry.area
 
     for metric in metrics:
-        try:
-            # could be preferable to use a test based on dtype
-            if np.all(shp_left[metric] > -float('inf')):
-                # scale numeric attributes
-                shp_left[metric] = 0.0
-                for index, group in merged.groupby('index_left'):
-                    scale = group['AREA'] / group['AREA_right']
-                    shp_left.loc[index, metric] = (scale * group[metric]).sum()
-        except:
+        print("metric", metric)
+        # could be preferable to use a test based on dtype
+        print(type(shp_right[metric]))
+        if np.all(shp_right[metric] > -float('inf')):
+            # scale numeric attributes
+            shp_left[metric] = 0.0
+            for index, group in merged.groupby('index_left'):
+                scale = group['AREA'] / group['AREA_right']
+                shp_left.loc[index, metric] = (scale * group[metric]).sum()
+        else:
+            print("SHOULD NT PRINT THIS")
             # copy non-numeric attributes
             shp_left[metric] = shp_right[metric]
     print(shp_left.columns)
     return shp_left
 
+
 def cmdline():
-     logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.INFO)
 
-     parser = argparse.ArgumentParser(
-         description=__doc__.strip().splitlines()[0],                # First line of the docstring
-         formatter_class=argparse.ArgumentDefaultsHelpFormatter,     # Print default values
-     )
-     parser.add_argument('left', help='left shape file')
-     parser.add_argument('right', help='second shape file')
-     parser.add_argument('output', help='output folder name')
-     parser.add_argument('metrics', default=[], nargs='?', help='metrics from second file to include in first')
+    parser = argparse.ArgumentParser(
+        # First line of the docstring
+        description=__doc__.strip().splitlines()[0],
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,     # Print default values
+    )
+    parser.add_argument('left', help='left shape file')
+    parser.add_argument('right', help='second shape file')
+    parser.add_argument('output', help='output folder name')
+    parser.add_argument('metrics', default=[], nargs='?',
+                        help='metrics from second file to include in first. Expects a comma separated string')
 
-     args = parser.parse_args()
+    args = parser.parse_args()
 
-     output = args.output
-     if not output:
-         output = args.left + '-out'
-     res = map_merge(args.left, args.right)
-     res.to_file(output)
-     return res
+    output = args.output
+    if not output:
+        output = args.left + '-out'
+    print(args.metrics)
+    res = map_merge(args.left, args.right, [args.metrics])
+    res.to_file(output)
+    return res
+
 
 if __name__ == '__main__':
     cmdline()
