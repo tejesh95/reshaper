@@ -21,16 +21,10 @@ def map_merge(left, right, metrics=''):
     # Precompute the areas
     shp_left['AREA'] = shp_left.geometry.area
     shp_right['AREA'] = shp_right.geometry.area
-    print(shp_right.head(3))
 
     # Filter None values from shp_right, shp_left
     # shp_left.dropna(inplace=True)
     # shp_right.dropna(inplace=True)
-    print("#########################")
-    print(shp_left.head(3))
-    print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-    print(shp_right.head(3))
-    print("$$$$$$$$$$$$$$$$$$$$$$$$$$$")
 
     # Move a metric from the right shapefile to the left by weighting it by AREA
     # default to all columns except geometry and AREA
@@ -58,9 +52,7 @@ def map_merge(left, right, metrics=''):
     merged['AREA'] = merged.geometry.area
 
     for metric in metrics:
-        print("metric", metric)
         # could be preferable to use a test based on dtype
-        print(type(shp_right[metric]))
         if np.all(shp_right[metric] > -float('inf')):
             # scale numeric attributes
             shp_left[metric] = 0.0
@@ -68,10 +60,8 @@ def map_merge(left, right, metrics=''):
                 scale = group['AREA'] / group['AREA_right']
                 shp_left.loc[index, metric] = (scale * group[metric]).sum()
         else:
-            print("SHOULD NT PRINT THIS")
             # copy non-numeric attributes
             shp_left[metric] = shp_right[metric]
-    print(shp_left.columns)
     return shp_left
 
 
@@ -79,14 +69,13 @@ def cmdline():
     logging.basicConfig(level=logging.INFO)
 
     parser = argparse.ArgumentParser(
-        # First line of the docstring
-        description=__doc__.strip().splitlines()[0],
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,     # Print default values
+        description=__doc__.strip().splitlines()[0],            # First line of the docstring
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter  # Print default values
     )
     parser.add_argument('left', help='left shape file')
     parser.add_argument('right', help='second shape file')
     parser.add_argument('output', help='output folder name')
-    parser.add_argument('metrics', default=[], nargs='?',
+    parser.add_argument('-m', '--metrics', nargs='+',
                         help='metrics from second file to include in first. Expects a comma separated string')
 
     args = parser.parse_args()
@@ -94,7 +83,6 @@ def cmdline():
     output = args.output
     if not output:
         output = args.left + '-out'
-    print(args.metrics)
     res = map_merge(args.left, args.right, [args.metrics])
     res.to_file(output)
     return res
